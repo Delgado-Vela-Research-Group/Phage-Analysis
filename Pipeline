@@ -133,9 +133,64 @@ virsorter run -w virsorter2_results -i Assembly_2300.fa -j 4 all --prep-for-dram
 ##### Step 5 code ends #####
 
 
+## Step 6: Contigs annotation 
+
+### Bioinfromatic tool used: DRAM v1.4.6 
+### Data description : Input data are assembly results
 
 
 
+##### Step 6 code starts #####
+
+#Setting up databases
+#Only need to run once
+DRAM-setup.py prepare_databases --output_dir DRAM_databases_V2 --skip_uniref
+
+
+#Annotate genes using regular method
+DRAM.py annotate -i Assembly/final.contigs.fa -o DRAM_annotation_all_assembly
+
+#Distill the results from the regular method
+DRAM.py distill -i DRAM_annotation_all_assembly/annotations.tsv -o DRAM_annotation_all_assembly_distilled --trna_path DRAM_annotation_all_assembly/trnas.tsv  
+
+
+##### Step 6 code ends #####
+
+
+
+## Step 7: Viral Taxonomy 
+
+### Bioinfromatic tool used: PhaGCN & python3
+### Data description : Input data are viral contigs 
+
+##### Step 7 code starts #####
+
+#Run PhaGCN 
+python3 PhaBOX/main.py --contigs SAMPLE_viral_contigs_method_identified_by_virsorter_virsorter2_checkv.fa 
+
+
+##### Step 7 code ends #####
+
+
+
+## Step 8: ARGs hits using BLAST
+
+### Bioinfromatic tool used: BLAST v2.11.0 
+### Data description : Input data are viral contigs 
+
+
+##### Step 8 code starts #####
+
+
+#Making blastdb 
+#only need to be run once
+makeblastdb -in megares_database_v3.00.fasta -dbtype nucl -out blast_ARG_db
+
+#Run blast
+blastn -query SAMPLE_viral_contigs_method_identified_by_virsorter_virsorter2_checkv.fa -outfmt "6 std qlen" -db blast_ARG_db  -out blastn_results/SAMPLE_ARG.blastn
+
+
+##### Step 8 code ends #####
 
 
 
