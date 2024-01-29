@@ -1,0 +1,147 @@
+# This file describes and shows the different commands used for the bioinfromatic pipeline to identify viral sequences from metagenomic data. This file shows the pipeline used for each of the samples analyzed in our paper. 
+
+
+
+## Step 1: Reads pre-processing 
+
+### Bioinfromatic tool used: Fastp v0.23.2 
+### Data description : Input data are sequencing data in 4 lanes which are L001, L002, L003, L004
+
+##### Step 1 code starts #####
+
+#Running fastp processing for ll 4 sequencing lanes 
+fastp -i L001/fwd.fastq -I L001/rev.fastq -o L001/fwd_fp.fastq -O L001/rev_fp.fastq --detect_adapter_for_pe -l 50 --cut_right --cut_right_window_size 4 --cut_right_mean_quality 25 --qualified_quality_phred 25 --cut_front --cut_front_window_size 4 --cut_front_mean_quality 25 --dedup -c
+fastp -i L002/fwd.fastq -I L002/rev.fastq -o L002/fwd_fp.fastq -O L002/rev_fp.fastq --detect_adapter_for_pe -l 50 --cut_right --cut_right_window_size 4 --cut_right_mean_quality 25 --qualified_quality_phred 25 --cut_front --cut_front_window_size 4 --cut_front_mean_quality 25 --dedup -c
+fastp -i L003/fwd.fastq -I L003/rev.fastq -o L003/fwd_fp.fastq -O L003/rev_fp.fastq --detect_adapter_for_pe -l 50 --cut_right --cut_right_window_size 4 --cut_right_mean_quality 25 --qualified_quality_phred 25 --cut_front --cut_front_window_size 4 --cut_front_mean_quality 25 --dedup -c 
+fastp -i L003/fwd.fastq -I L003/rev.fastq -o L003/fwd_fp.fastq -O L003/rev_fp.fastq --detect_adapter_for_pe -l 50 --cut_right --cut_right_window_size 4 --cut_right_mean_quality 25 --qualified_quality_phred 25 --cut_front --cut_front_window_size 4 --cut_front_mean_quality 25 --dedup -c 
+
+
+#Combine files from all the four lanes 
+cat L001/fwd_fp.fastq L002/fwd_fp.fastq L003/fwd_fp.fastq L004/fwd_fp.fastq > fwd.good.fastq
+cat L001/rev_fp.fastq L002/rev_fp.fastq L003/rev_fp.fastq L004/rev_fp.fastq > rev.good.fastq 
+
+##### Step 1 code ends #####
+
+
+## Step 2: Reads Assembly
+
+### Bioinfromatic tool used: Megahit v1.2.9 
+### Data description : Input data are the forward and reverse quality filtered and trimmed reads
+
+##### Step 2 code starts #####
+
+#Running megahit to assemble data
+megahit -1 fwd.good.fastq -2 rev.good.fastq --k-min 21 --k-max 255 --k-step 6 -o Assembly
+
+##### Step 2 code ends #####
+
+
+## Step 3: Extracting reads that are only higher than 2300 bp from assembly results 
+
+### Software used: Python3
+### Data description : Input data are assembly results 
+
+
+##### Step 3 code starts #####
+
+#filename: get_seq_len.py
+#1st arg = fasta file of assembly
+#2nd argv = sequence length threshold 
+#3rd argv = name of output file
+import Bio
+from Bio import SeqIO
+import sys
+
+seq_on=[]
+count_on=0
+count_off=0
+for seq_record in SeqIO.parse(sys.argv[1], "fasta"):
+        if len(seq_record)>=int(sys.argv[2]):
+                seq_on.append(seq_record)
+                count_on= count_on+1
+        else: 
+              	count_off= count_off+1
+
+#writing output file 
+SeqIO.write(seq_on, sys.argv[3], 'fasta')
+
+#To use code, the file get_seq_len.py can be typed in command line with the 3 arguments described above to get an output file with the read length specified from user. 
+
+##### Step 3 code ends #####
+
+
+## Step 4: Mapping reads
+
+### Bioinfromatic tool used: Bowtie2 v2.4.4 & Samtools v1.13.0 
+### Data description : Input data are assembly results 
+
+
+
+##### Step 4 code starts #####
+
+#Build bowtie2-index 
+bowtie2-build Assembly/final.contigs.fa bowtie2_index
+
+#Align reads
+bowtie2 -x bowtie2_index -1 fwd.good.fastq -2 rev.good.fastq -q -S mapped_reads.sam 
+
+#Use samtools to convert sam to bam files
+samtools view -Sb -o mapped_read.bam mapped_reads.sam
+
+#Sort the bam file
+samtools sort -o mapped_reads_sorted.bam mapped_read.bam
+
+#index the sorted bam file
+samtools index mapped_reads_sorted.bam 
+
+#Calculate the mean coverage of the bam file
+samtools coverage mapped_reads_sorted.bam > coverage_mapped_reads_sorted.txt 
+
+#Obtain stats of the bam file
+samtools stats mapped_reads_sorted.bam > stats_mapped_reads_sorted.txt 
+
+#Calculate the coverage of each position the bam file
+samtools depth -a  mapped_reads_sorted.bam > depth_each_position_mapped_reads_sorted.txt 
+ 
+#Get alignment rate from the bam file
+samtools flagstat mapped_reads_sorted.bam > alignment_rate_mapped_reads_sorted.txt 
+
+
+##### Step 4 code ends #####
+
+
+## Step 5: Viral contigs identification
+
+### Bioinfromatic tool used: CheckV v1.0.1 & VirSorter v1.0.6 & VirSorter2 v2.2.4 
+### Data description : Input data are assembly results over 2300bp length
+
+
+
+##### Step 5 code starts #####
+
+#Run checkv
+checkv end_to_end Assembly_2300.fa checkv_results -d checkv-db-v1.5  
+
+#Run Virsorter
+VirSorter/wrapper_phage_contigs_sorter_iPlant.pl -f Assembly_2300.fa  --db 1 --wdir virsorter_results --data-dir virsorter-data
+
+#Run Virsorter2
+virsorter run -w virsorter2_results -i Assembly_2300.fa -j 4 all --prep-for-dramv 
+
+#Note: output files from the three tools are further analyzed using R-Studio to pass criteria set to determine if a contig is viral or not
+
+##### Step 5 code ends #####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
