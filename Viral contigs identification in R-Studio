@@ -1,8 +1,8 @@
 ##########################################################################
 ##########################################################################
-## The current code was written in R-Studio to identify and filter viral contigs from the three bioinfromatic tools: Virsorter, Virsorter2, and CheckV. 
+Description: the current code was written in R-Studio to identify and filter viral contigs from the three bioinfromatic tools: Virsorter, Virsorter2, and CheckV. 
 
-## Major parts of the code were taken from the following publication: 
+##### NOTE: Major parts of the code were taken from the following publication: 
 
 "Hegarty, B.; Dai, Z.; Raskin, L.; Pinto, A.; Wigginton, K.; Duhaime, M. A Snapshot of the Global Drinking Water Virome: Diversity and Metabolic Potential Vary with Residual Disinfectant Use. Water Research 2022, 218, 118484." 
 
@@ -85,3 +85,5 @@ viruses$keep_score[(viruses$checkv_viral_genes*3) <= viruses$checkv_host_genes] 
 viruses$keep_score[viruses$checkv_length>50000 & viruses$hallmark==0] <- 0
 viruses$keep_score_high <- 0
 viruses$keep_score_high[viruses$keep_score>=1] <- 1
+
+######################Code Ends######################
