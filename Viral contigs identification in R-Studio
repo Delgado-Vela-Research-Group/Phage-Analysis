@@ -1,0 +1,87 @@
+##########################################################################
+##########################################################################
+## The current code was written in R-Studio to identify and filter viral contigs from the three bioinfromatic tools: Virsorter, Virsorter2, and CheckV. 
+
+## Major parts of the code were taken from the following publication: 
+
+"Hegarty, B.; Dai, Z.; Raskin, L.; Pinto, A.; Wigginton, K.; Duhaime, M. A Snapshot of the Global Drinking Water Virome: Diversity and Metabolic Potential Vary with Residual Disinfectant Use. Water Research 2022, 218, 118484." 
+
+
+##########################################################################
+##########################################################################
+
+######################Code Starts######################
+
+
+##Filtering data through CheckV
+
+checkV <- read.table("CheckV_Results/quality_summary.tsv", sep="\t", 
+                     stringsAsFactors=F, header=F)
+checkV <- data.frame(contig_id=checkV$V1, 
+                     checkv_provirus=checkV$V3,
+                     checkv_original_qualities=checkV$V8,
+                     checkv_completeness=checkV$V10,
+                     checkv_contamination=checkV$V12,
+                     checkv_viral_genes=checkV$V6,
+                     checkv_host_genes=checkV$V7,
+                     checkv_total_genes=checkV$V5,
+                     checkv_length=checkV$V2)
+checkV$contig_id <- sub("\\.", "_", checkV$contig_id)
+checkV$uniq_contig <- paste(checkV$contig_id)
+
+##Filtering data through VirSorter 
+
+VS_contigs <- read.csv("virsorter/VIRSorter_global-phage-signal_adj.csv",header = F)
+VS_contigs <- data.frame(method="virsorter",contig=vs_c$V1, virsorter_category=vs_c$V5)
+VS_contigs$contig <- sub("VIRSorter_", "", vVS_contigs$contig)
+VS_contigs$uniq_contig <- paste(VS_contigs$contig)
+VS_contigs <- VS_contigs[VS_contigs$virsorter_category==1|VS_contigs$virsorter_category==2|VS_contigs$virsorter_category==3,]
+
+##Filtering data through VirSorter2
+
+VS2_contigs <- read.table("Virsorter2_results/final-viral-score.tsv", header=T, sep="\t", stringsAsFactors=F)
+VS2_contigs <- separate(VS2_contigs, col = seqname, into = c("Contig", "Type"), "\\|\\|")
+VS2_contigs$uniq_contig <- paste(VS2_contigs$Contig)
+VS2_contigs <- VS2_contigs[!duplicated(VS2_contigs$uniq_contig),]
+
+
+
+##Merging all filtered data from the three tools under 1 data frame
+
+viruses <- full_join(x=checkV, y=VS_contigs, by ="uniq_contig")
+viruses <- full_join(x=viruses, y=VS2_contigs, by ="uniq_contig")
+viruses <- viruses[-1,]
+viruses$checkv_host_genes <- as.numeric(viruses$checkv_host_genes) 
+viruses$checkv_viral_genes <- as.numeric(viruses$checkv_viral_genes) 
+viruses$checkv_total_genes <- as.numeric(viruses$checkv_total_genes) 
+
+#Checking the percentage of host and viral genes
+
+viruses$percent_host <- viruses$checkv_host_genes/viruses$checkv_total_genes*100
+viruses$percent_viral <- viruses$checkv_viral_genes/viruses$checkv_total_genes*10
+viruses$percent_unknown <- 100-(viruses$checkv_host_genes+viruses$checkv_viral_genes)/viruses$checkv_total_genes*100
+
+
+viruses$virsorter_category[is.na(viruses$virsorter_category)] <- 0
+viruses$viral[is.na(viruses$viral)] <- 0
+viruses$hallmark[is.na(viruses$hallmark)] <- 0
+viruses$percent_viral[is.na(viruses$percent_viral)] <- 0
+
+#Adding points criteria to keep contigs or not depending on criterias specified in methods of publication 
+viruses$keep_score <- 0
+viruses$keep_score[viruses$virsorter_category==1] <- 1
+viruses$keep_score[viruses$virsorter_category==2] <- 0.52
+viruses$keep_score[viruses$virsorter_category==3] <- 0.333
+viruses$keep_score[viruses$virsorter_category==4] <- 1
+viruses$keep_score[viruses$virsorter_category==5] <- 0.52
+viruses$keep_score[viruses$virsorter_category==6] <- 0.333
+viruses$keep_score[viruses$viral>=50] <- viruses$keep_score[viruses$viral>=50] + 0.333
+viruses$keep_score[(viruses$viral>=50 & viruses$checkv_host_genes==0) & viruses$checkv_viral_genes==0] <- viruses$keep_score[(viruses$viral>=50 & viruses$checkv_host_genes==0) & viruses$checkv_viral_genes==0] + 0.52
+viruses$keep_score[viruses$hallmark>2] <- viruses$keep_score[viruses$hallmark>2] + 1
+viruses$keep_score[viruses$viral>=95] <- viruses$keep_score[viruses$viral>=95] + 1
+viruses$keep_score[viruses$percent_viral>=50] <- viruses$keep_score[viruses$percent_viral>=50] + 1
+viruses$keep_score[viruses$checkv_viral_genes==0 & viruses$checkv_host_genes>=1] <- 0
+viruses$keep_score[(viruses$checkv_viral_genes*3) <= viruses$checkv_host_genes] <- 0
+viruses$keep_score[viruses$checkv_length>50000 & viruses$hallmark==0] <- 0
+viruses$keep_score_high <- 0
+viruses$keep_score_high[viruses$keep_score>=1] <- 1
