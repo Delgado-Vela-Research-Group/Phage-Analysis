@@ -1,0 +1,44 @@
+#############################################################################################
+#############################################################################################
+
+Description: The following code was written in R-Studio. The purpose of the code was to merge the annotations of each of the contigs with their repective coverages. This code was done for every sample. 
+
+#############################################################################################
+#############################################################################################
+
+
+#############################Code Starts###########################################
+
+## Reading the coverage per position file file
+coverage_per_position <- read.delim("Bowtie2_samtools_results/depth_each_position_mapped_reads_sorted.txt", sep="\t", 
+                                                       stringsAsFactors=F, header=T)
+colnames(coverage_per_position)[1]<- "contig_id"
+colnames(coverage_per_position)[2]<- "gene_position"
+colnames(coverage_per_position)[3]<- "depth_per_position"
+
+
+## Reading the viral contigs file produced from "viral contigs identification file" 
+viral_contigs<- read.xlsx("viral_contigs_method_identified_by_virsorter_virsorter2_checkv.xlsx",1)
+viral_contigs<- subset(viral_contigs,select = c("contig_id"))
+
+## Reading the annotation file 
+annotations <- read.table("DRAM metabolism results/Annotation_of_all_assembly_contigs/annotations.tsv",sep = "\t",header = T,fill = T)
+colnames(annotations)[3]<- "contig_id"
+annotations<- subset(annotations,select = c("contig_id","pfam_hits","gene_position","start_position","end_position"))
+annotations$gene_position<-as.numeric(annotations$gene_position)
+annotations$start_position<-as.numeric(annotations$start_position)
+annotations$end_position<-as.numeric(annotations$end_position)
+annotations$gene_length<-(annotations$end_position)-(annotations$start_position)
+
+## Merge coverages per position with viral contigs
+Merged_ann_cover_pos_viral<- coverage_per_position %>% inner_join( viral_contigs,by=c('contig_id'='contig_id'))
+Merged_ann_cover_pos_viral<- Merged_ann_cover_pos_viral %>% inner_join( annotations,by=c('contig_id'='contig_id','gene_position'="gene_position"))
+Merged_ann_cover_pos_viral<- Merged_ann_cover_pos_viral[-which(Merged_ann_cover_pos_viral$pfam_hits == ""), ]
+
+
+## Normalizing the coverage 
+coverage_norm_factor <- read.xlsx("Coverage_norm.xlsx",1)
+Merged_ann_cover_pos_viral$norm_depth_per_mapped_reads<-(Merged_ann_cover_pos_viral$depth_per_position/(coverage_norm_factor$Mapped.reads[8]))*(10^6)
+Merged_ann_cover_pos_viral$rpkm<- Merged_ann_cover_pos_viral$norm_depth_per_mapped_reads/((Merged_ann_cover_pos_viral$gene_length)/(1000))
+
+#############################Code Ends###########################################
