@@ -128,7 +128,8 @@ VirSorter/wrapper_phage_contigs_sorter_iPlant.pl -f Assembly_2300.fa  --db 1 --w
 #Run Virsorter2
 virsorter run -w virsorter2_results -i Assembly_2300.fa -j 4 all --prep-for-dramv 
 
-#Note: output files from the three tools are further analyzed using R-Studio to pass criteria set to determine if a contig is viral or not
+#Note: output files from the three tools are further analyzed using R-Studio to pass criteria set to determine if a contig is viral or not. Please check file "viral contig identification" file in the respiratory for further information on extracting the contigs. 
+
 
 ##### Step 5 code ends #####
 
